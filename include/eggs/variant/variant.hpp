@@ -57,9 +57,14 @@ namespace eggs { namespace variants
         ///////////////////////////////////////////////////////////////////////
         namespace _best_match
         {
+            struct _fallback {};
+
             template <typename Ts, std::size_t I = 0>
             struct overloads
-            {};
+            {
+                using fun_ptr = _fallback(*)(...);
+                operator fun_ptr();
+            };
 
             template <typename T, typename ...Ts, std::size_t I>
             struct overloads<pack<T, Ts...>, I>
@@ -69,30 +74,53 @@ namespace eggs { namespace variants
                 operator fun_ptr();
             };
 
+            template <typename Ts, std::size_t I = 0>
+            struct explicit_overloads
+            {
+                _fallback operator()(...) const;
+            };
+
+            template <typename T, typename ...Ts, std::size_t I>
+            struct explicit_overloads<pack<T, Ts...>, I>
+              : explicit_overloads<pack<Ts...>, I + 1>
+            {
+                using explicit_overloads<pack<Ts...>, I + 1>::operator();
+
+                template <typename U>
+                typename std::enable_if<
+                    std::is_constructible<T, U>::value &&
+                   !std::is_convertible<U, T>::value,
+                    index<I>
+                >::type operator()(U&&, T* = nullptr) const;
+            };
+
+            _fallback _invoke(...);
+
             template <typename F, typename T>
             auto _invoke(F&&, T&&)
              -> decltype(std::declval<F>()(std::declval<T>()));
 
-            struct _fallback {};
-
-            _fallback _invoke(...);
-
             template <
-                typename T, typename U
+                typename F, typename U
               , typename R = decltype(_best_match::_invoke(
-                    std::declval<T>(), std::declval<U>()))
+                    std::declval<F>(), std::declval<U>()))
             >
             struct result_of : R
             {};
 
-            template <typename T, typename U>
-            struct result_of<T, U, _fallback>
+            template <typename F, typename U>
+            struct result_of<F, U, _fallback>
             {};
         }
 
         template <typename U, typename ...Ts>
         struct index_of_best_match
           : _best_match::result_of<_best_match::overloads<Ts...>, U>
+        {};
+
+        template <typename U, typename ...Ts>
+        struct index_of_explicit_match
+          : _best_match::result_of<_best_match::explicit_overloads<Ts...>, U>
         {};
 
         ///////////////////////////////////////////////////////////////////////
@@ -283,7 +311,7 @@ namespace eggs { namespace variants
 #endif
 
         //! template <class U>
-        //! constexpr variant(U&& v);
+        //! EXPLICIT constexpr variant(U&& v);
         //!
         //! Let `T` be one of the types in `Ts...` for which `U&&` is
         //!  unambiguously convertible to by overload resolution rules.
@@ -309,8 +337,31 @@ namespace eggs { namespace variants
                 U&&, detail::pack<Ts...>>::value
           , typename T = typename detail::at_index<
                 I, detail::pack<Ts...>>::type
+          , typename std::enable_if<
+                std::is_constructible<T, U>::value &&
+                std::is_convertible<U, T>::value
+              , bool>::type = false
         >
         EGGS_CXX11_CONSTEXPR variant(U&& v)
+#if EGGS_CXX11_STD_HAS_IS_NOTHROW_TRAITS
+            EGGS_CXX11_NOEXCEPT_IF(
+                std::is_nothrow_constructible<T, U&&>::value)
+#endif
+          : _storage{detail::index<I + 1>{}, std::forward<U>(v)}
+        {}
+
+        template <
+            typename U
+          , std::size_t I = detail::index_of_explicit_match<
+                U&&, detail::pack<Ts...>>::value
+          , typename T = typename detail::at_index<
+                I, detail::pack<Ts...>>::type
+          , typename std::enable_if<
+                std::is_constructible<T, U>::value &&
+                !std::is_convertible<U, T>::value
+              , bool>::type = false
+        >
+        explicit EGGS_CXX11_CONSTEXPR variant(U&& v)
 #if EGGS_CXX11_STD_HAS_IS_NOTHROW_TRAITS
             EGGS_CXX11_NOEXCEPT_IF(
                 std::is_nothrow_constructible<T, U&&>::value)
