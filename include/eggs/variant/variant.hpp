@@ -57,14 +57,9 @@ namespace eggs { namespace variants
         ///////////////////////////////////////////////////////////////////////
         namespace _best_match
         {
-            struct _fallback {};
-
             template <typename Ts, std::size_t I = 0>
             struct overloads
-            {
-                using fun_ptr = _fallback(*)(...);
-                operator fun_ptr();
-            };
+            {};
 
             template <typename T, typename ...Ts, std::size_t I>
             struct overloads<pack<T, Ts...>, I>
@@ -74,25 +69,23 @@ namespace eggs { namespace variants
                 operator fun_ptr();
             };
 
-            template <typename Ts, std::size_t I = 0>
+            template <typename Ts, typename U, std::size_t I = 0>
             struct explicit_overloads
-            {
-                _fallback operator()(...) const;
-            };
+            {};
 
-            template <typename T, typename ...Ts, std::size_t I>
-            struct explicit_overloads<pack<T, Ts...>, I>
-              : explicit_overloads<pack<Ts...>, I + 1>
+            template <typename T, typename ...Ts, typename U, std::size_t I>
+            struct explicit_overloads<pack<T, Ts...>, U, I>
+              : explicit_overloads<pack<Ts...>, U, I + 1>
             {
-                using explicit_overloads<pack<Ts...>, I + 1>::operator();
-
-                template <typename U>
-                typename std::enable_if<
+                using fun_ptr = typename std::conditional<
                     std::is_constructible<T, U>::value &&
                    !std::is_convertible<U, T>::value,
-                    index<I>
-                >::type operator()(U&&, T* = nullptr) const;
+                    index<I>(*)(U&&), void
+                >::type;
+                operator fun_ptr();
             };
+
+            struct _fallback {};
 
             _fallback _invoke(...);
 
@@ -113,14 +106,14 @@ namespace eggs { namespace variants
             {};
         }
 
-        template <typename U, typename ...Ts>
+        template <typename U, typename Ts>
         struct index_of_best_match
-          : _best_match::result_of<_best_match::overloads<Ts...>, U>
+          : _best_match::result_of<_best_match::overloads<Ts>, U>
         {};
 
-        template <typename U, typename ...Ts>
+        template <typename U, typename Ts>
         struct index_of_explicit_match
-          : _best_match::result_of<_best_match::explicit_overloads<Ts...>, U>
+          : _best_match::result_of<_best_match::explicit_overloads<Ts, U>, U>
         {};
 
         ///////////////////////////////////////////////////////////////////////
@@ -338,8 +331,8 @@ namespace eggs { namespace variants
           , typename T = typename detail::at_index<
                 I, detail::pack<Ts...>>::type
           , typename std::enable_if<
-                std::is_constructible<T, U>::value &&
-                std::is_convertible<U, T>::value
+                std::is_constructible<T, U>::value
+             && std::is_convertible<U, T>::value
               , bool>::type = false
         >
         EGGS_CXX11_CONSTEXPR variant(U&& v)
@@ -357,8 +350,8 @@ namespace eggs { namespace variants
           , typename T = typename detail::at_index<
                 I, detail::pack<Ts...>>::type
           , typename std::enable_if<
-                std::is_constructible<T, U>::value &&
-                !std::is_convertible<U, T>::value
+                std::is_constructible<T, U>::value
+             && !std::is_convertible<U, T>::value
               , bool>::type = false
         >
         explicit EGGS_CXX11_CONSTEXPR variant(U&& v)
