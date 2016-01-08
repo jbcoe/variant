@@ -315,7 +315,7 @@ namespace eggs { namespace variants
         //!  initializing an object of type `T` with the expression
         //!  `std::forward<U>(v)`.
         //!
-        //! \postconditions `*this` has an active member.
+        //! \postconditions `*this` has an active member of type `T`.
         //!
         //! \throws Any exception thrown by the selected constructor of `T`.
         //!
@@ -323,7 +323,9 @@ namespace eggs { namespace variants
         //!  resolution unless there is a type `T` in `Ts...` for which `U&&`
         //!  is unambiguously convertible to by overload resolution rules. If
         //!  `T`'s selected constructor is a `constexpr` constructor, this
-        //!  constructor shall be a `constexpr` constructor.
+        //!  constructor shall be a `constexpr` constructor. This constructor
+        //!  is explicit if and only if `std::is_convertible_v<U&&, T>` is
+        //!  `false`.
         template <
             typename U
           , std::size_t I = detail::index_of_best_match<
