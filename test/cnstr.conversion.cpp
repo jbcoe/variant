@@ -84,15 +84,15 @@ TEST_CASE("variant<Ts...>::variant(T&&)", "[variant.cnstr]")
 
         // explicit conversion
         {
-            eggs::variant<int, Explicit> v("42");
+            eggs::variant<int, Explicit<std::string>> v("42");
 
             CHECK(bool(v) == true);
             CHECK(v.which() == 1u);
-            REQUIRE(v.target<Explicit>() != nullptr);
-            CHECK(v.target<Explicit>()->x == "42");
+            REQUIRE(v.target<Explicit<std::string>>() != nullptr);
+            CHECK(v.target<Explicit<std::string>>()->x == "42");
 
 #if EGGS_CXX98_HAS_RTTI
-            CHECK(v.target_type() == typeid(Explicit));
+            CHECK(v.target_type() == typeid(Explicit<std::string>));
 #endif
         }
     }

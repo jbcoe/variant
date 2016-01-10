@@ -57,6 +57,8 @@ namespace eggs { namespace variants
         ///////////////////////////////////////////////////////////////////////
         namespace _best_match
         {
+            struct _fallback {};
+
             template <typename Ts, std::size_t I = 0>
             struct overloads
             {};
@@ -77,15 +79,16 @@ namespace eggs { namespace variants
             struct explicit_overloads<pack<T, Ts...>, U, I>
               : explicit_overloads<pack<Ts...>, U, I + 1>
             {
-                using fun_ptr = typename std::conditional<
+                using fun_ptr = _fallback(*)(T);
+                operator fun_ptr();
+
+                using explicit_fun_ptr = typename std::conditional<
                     std::is_constructible<T, U>::value &&
                    !std::is_convertible<U, T>::value,
                     index<I>(*)(U&&), void
                 >::type;
-                operator fun_ptr();
+                operator explicit_fun_ptr();
             };
-
-            struct _fallback {};
 
             _fallback _invoke(...);
 

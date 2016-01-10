@@ -8,11 +8,21 @@
 #ifndef EGGS_VARIANT_TEST_EXPLICIT_HPP
 #define EGGS_VARIANT_TEST_EXPLICIT_HPP
 
+#include <type_traits>
+#include <utility>
+
+template <typename T>
 struct Explicit
 {
-    std::string x;
+    T x;
 
-    explicit Explicit(char const* str) : x(str) {}
+    template <
+        typename U
+      , typename Enable = typename std::enable_if<
+            std::is_constructible<T, U&&>::value
+        >::type
+    >
+    explicit Explicit(U&& x) : x(std::forward<U>(x)) {}
 };
 
 #endif /*EGGS_VARIANT_TEST_EXPLICIT_HPP*/
